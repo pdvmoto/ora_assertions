@@ -4,38 +4,26 @@
 tst_as3b.sql: re-run test of tst_as3 with larger numbers
 
 pre-requirement: 
- - make sure tst_ass.sql and tst_as3.sql worked fine
+ - make sure demobld.sql, tst_ass.sql and tst_as3.sql worked fine
+ - prepare file connscott.sql to connect to schema e.g. "conn scott/tiger.." 
 
 setup is now:
  - re-insert same data several times and compare stats
 
 notes, etc..
- - first test without assertion, test n executes
+ - save data to re-insert
+ - first test without assertion, 
+ -  run each test 3x on fresh session, and log sssion-stats
  - re-add assertion, test another n executes
+ - check the insert-stmnts
+ - check the additional stmnts on the funny tables
 
-notes: use similar sql to find differences
-select s.rows_processed, s.executions, s.buffer_gets, s.* from v$sql s 
-where upper ( sql_text) like '%ORA$SA$%' 
-and upper ( sql_text ) not like '%SQL_TEXT%'
-order by first_load_time desc ; 
-
-column rws_p_x format  999.9
-column buf_p_x format 9999.9
-column sqltxt format A35
-
-select s.rows_processed / s.executions as rws_p_x
---, s.executions
---, s.buffer_gets
-, s.buffer_gets / s.executions buf_p_x
-, substr ( s.sql_text , 1, 32 ) sqltxt
---, s.* 
-from v$sql s 
-where lower ( sql_text) like '%tst_as3b%' 
-and upper ( sql_text ) not like '%SQL_TEXT%'
-order by first_load_time desc ; 
 *** */
 
-conn scott/tiger@tstass
+set pagesize 32
+set heading on
+
+@connscott
 
 spool tst_as3b
 
@@ -55,12 +43,12 @@ insert into a_save_data select * from a_save_data ;
 /
 /
 
-prompt now should have about 600 rows in the table, data to play with
+prompt now should have about 608 rows in the table, data to play with
 
 -- clean out shpool
 alter system flush shared_pool; 
 
-connect scott/tiger@tstass
+@connscott
 
 -- do nothing..
 @mystat
@@ -69,7 +57,7 @@ prompt.
 prompt measure overhead, session did nothing yet.. 
 host read -t 15 -p "check the stats for overhead (1/3x) ..." abc
 
-connect scott/tiger@tstass
+@connscott
 
 -- do nothing..
 @mystat
@@ -78,7 +66,7 @@ prompt.
 prompt measure overhead, session did nothing yet.. 
 host read -t 15 -p "check the stats for overhead (2/3x) ..." abc
 
-connect scott/tiger@tstass
+@connscott
 
 -- do nothing..
 @mystat
@@ -88,10 +76,10 @@ prompt measure overhead, session did nothing yet..
 prompt on third attempt, numbers should be similar
 host read -t 15 -p "check the stats for overhead (3/3x) ..." abc
 
-connect scott/tiger@tstass
+@connscott
 
 set echo on
-insert /* tst_as3b without */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
+insert /* as3b WITHOUT */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
 select * from a_save_data ;
 
 / 
@@ -109,10 +97,10 @@ host read -t 15 -p "check the stats after inserting, WITHOUT Asserions (1/3)..."
 
 rollback ;
 
-conn scott/tiger@tstass 
+@connscott
 
 set echo on
-insert /* tst_as3b without */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
+insert /* as3b WITHOUT */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
 select * from a_save_data ;
 
 / 
@@ -128,10 +116,10 @@ host read -t 15 -p "2nd check of stats after inserting, WITHOUT Asserions (2/3).
 
 rollback ;
 
-conn scott/tiger@tstass 
+@connscott
 
 set echo on
-insert /* tst_as3b without */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
+insert /* as3b WITHOUT */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
 select * from a_save_data ;
 
 /
@@ -176,10 +164,10 @@ set echo off
 
 host read -t 15 -p "assertion re-created, now expect extra effort..." abc
 
-connect scott/tiger@tstass
+@connscott
 
 set echo on
-insert /* tst_as3b with */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
+insert /* as3b WITH   */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
 select * from a_save_data ;
 
 /
@@ -196,10 +184,10 @@ host read -t 15 -p "check the stats after inserting, WITH Asserions..." abc
 
 rollback ;
 
-conn scott/tiger@tstass 
+@connscott
 
 set echo on
-insert /* tst_as3b with */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
+insert /* as3b WITH   */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
 select * from a_save_data ;
 
 /
@@ -215,10 +203,10 @@ host read -t 15 -p "2nd check of stats after inserting, WITH Asserions..." abc
 
 rollback ;
 
-conn scott/tiger@tstass 
+@connscott
 
 set echo on
-insert /* tst_as3b with */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
+insert /* as3b WITH   */ into a_fnd ( a_def_id, deptno, empno, n_result ) 
 select * from a_save_data ;
 
 /
@@ -250,8 +238,8 @@ select
 , substr ( s.sql_text , 1, 32 )   sqltxt
 --, s.*
 from v$sql s
-where lower ( sql_text) like '%tst_as3b%'
-and upper ( sql_text ) not like '%SQL_TEXT%'
+where       sql_text        like '%as3b W%'
+and upper ( sql_text )  not like '%SQL_TEXT%'
 order by first_load_time desc ;
 
 spool off
